@@ -1,0 +1,775 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Badger — ICCID Pipeline</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            brand: { 50: '#eff6ff', 500: '#3b82f6', 600: '#2563eb', 700: '#1d4ed8' },
+          },
+          fontFamily: { sans: ['-apple-system','BlinkMacSystemFont','Segoe UI','sans-serif'] },
+        },
+      },
+    };
+  </script>
+  <style>
+    @keyframes pulse-dot { 0%,100%{opacity:1} 50%{opacity:.4} }
+    .dot-pulse { animation: pulse-dot 1.2s ease-in-out infinite; }
+    @keyframes shimmer { 0%{background-position:-200% 0} 100%{background-position:200% 0} }
+    .progress-shimmer {
+      background: linear-gradient(90deg, #3b82f6 25%, #10b981 50%, #3b82f6 75%);
+      background-size: 200% 100%;
+      animation: shimmer 2s linear infinite;
+    }
+    .terminal {
+      background:#0f172a; color:#cbd5e1;
+      font-family:ui-monospace,'SF Mono',Menlo,Monaco,Consolas,monospace;
+      font-size:12px; line-height:1.5;
+      padding:16px; border-radius:8px;
+      max-height:380px; overflow-y:auto;
+      white-space:pre-wrap; word-break:break-all;
+    }
+    .terminal::-webkit-scrollbar{width:6px}
+    .terminal::-webkit-scrollbar-thumb{background:#334155;border-radius:3px}
+  </style>
+</head>
+<body class="bg-slate-50 text-slate-800 font-sans antialiased">
+
+<div class="flex h-screen overflow-hidden">
+
+  <!-- ════ SIDEBAR ════════════════════════════════════════════════════════ -->
+  <aside class="bg-slate-900 text-slate-200 flex flex-col flex-shrink-0" style="width:260px">
+
+    <div class="px-5 py-4 border-b border-slate-800">
+      <div class="text-base font-semibold text-white">Badger Automation</div>
+      <div class="text-xs text-slate-400 mt-0.5">ICCID Order Pipeline</div>
+    </div>
+
+    <nav class="flex-1 px-2 py-3 space-y-1">
+      <button onclick="showSection('pipeline')" id="nav-pipeline"
+              class="nav-btn w-full flex items-center gap-2.5 px-3 py-2 rounded-md text-sm font-medium text-white bg-slate-700 transition">
+        <span class="text-base">&#x2699;</span> Pipeline
+      </button>
+      <button onclick="showSection('history')" id="nav-history"
+              class="nav-btn w-full flex items-center gap-2.5 px-3 py-2 rounded-md text-sm text-slate-400 hover:text-white hover:bg-slate-800 transition">
+        <span class="text-base">&#x1F4CB;</span> Run History
+      </button>
+      <button onclick="showSection('settings')" id="nav-settings"
+              class="nav-btn w-full flex items-center gap-2.5 px-3 py-2 rounded-md text-sm text-slate-400 hover:text-white hover:bg-slate-800 transition">
+        <span class="text-base">&#9881;</span> Settings
+      </button>
+      <button onclick="showSection('admin')" id="nav-admin"
+              class="nav-btn w-full flex items-center gap-2.5 px-3 py-2 rounded-md text-sm text-slate-400 hover:text-white hover:bg-slate-800 transition">
+        <span class="text-base">&#x1F517;</span> Admin
+      </button>
+    </nav>
+
+    <!-- Run status indicator -->
+    <div id="sidebar-status" class="px-4 py-3 border-t border-slate-800 hidden">
+      <div class="flex items-center gap-2 text-xs">
+        <span class="w-2 h-2 rounded-full bg-emerald-400 dot-pulse"></span>
+        <span class="text-emerald-300 font-medium">Pipeline running</span>
+      </div>
+      <div class="text-xs text-slate-500 mt-1" id="sidebar-elapsed">0s elapsed</div>
+    </div>
+
+    <div class="px-5 py-3 border-t border-slate-800 text-xs text-slate-500">
+      Developed by <span class="text-slate-300 font-medium">Gowtham Krishna</span>
+    </div>
+  </aside>
+
+  <!-- ════ MAIN ══════════════════════════════════════════════════════════ -->
+  <main class="flex-1 overflow-y-auto">
+
+    <!-- ─── PIPELINE VIEW ──────────────────────────────────────────────── -->
+    <section id="section-pipeline" class="p-8 max-w-5xl mx-auto">
+
+      <div class="mb-6">
+        <h1 class="text-2xl font-semibold text-slate-900">ICCID Order Pipeline</h1>
+        <p class="text-sm text-slate-500 mt-1">Upload an ICCID CSV file to run the full Salesforce order pipeline.</p>
+      </div>
+
+      <!-- ── CSV Upload Card ──────────────────────────────────────────── -->
+      <div class="bg-white border border-slate-200 rounded-xl shadow-sm mb-6">
+        <div class="px-6 pt-5 pb-2 border-b border-slate-100">
+          <h2 class="text-sm font-semibold text-slate-700">Upload ICCID CSV</h2>
+          <p class="text-xs text-slate-400 mt-0.5">File must have an <code class="bg-slate-100 px-1 py-0.5 rounded font-mono">ICCID</code> column — one ICCID per row.</p>
+        </div>
+        <div class="p-6">
+          <div id="drop-zone"
+               class="relative border-2 border-dashed border-slate-300 rounded-lg p-10 text-center hover:border-brand-400 hover:bg-brand-50 transition cursor-pointer"
+               onclick="document.getElementById('csv-file-input').click()"
+               ondragover="event.preventDefault(); this.classList.add('border-brand-400','bg-brand-50')"
+               ondragleave="this.classList.remove('border-brand-400','bg-brand-50')"
+               ondrop="handleDrop(event)">
+            <div class="text-4xl mb-3">&#x1F4C2;</div>
+            <p class="text-sm font-medium text-slate-700" id="drop-label">Click or drag &amp; drop a CSV file here</p>
+            <p class="text-xs text-slate-400 mt-1" id="drop-sub">Accepts .csv and .CSV</p>
+          </div>
+          <input type="file" id="csv-file-input" accept=".csv,.CSV" class="hidden" onchange="onFileSelect(event)">
+          <div class="mt-5 flex items-center justify-between">
+            <div id="file-info" class="text-xs text-slate-400 hidden">
+              <span id="file-name-display" class="font-medium text-slate-600"></span>
+              &nbsp;&middot;&nbsp;<span id="file-size-display"></span>
+            </div>
+            <div class="ml-auto">
+              <button id="csv-run-btn" onclick="runCsv()" disabled
+                      class="bg-brand-600 hover:bg-brand-700 disabled:opacity-40 disabled:cursor-not-allowed text-white text-sm font-medium px-6 py-2.5 rounded-lg transition shadow-sm">
+                &#x25B6;&nbsp; Start Pipeline
+              </button>
+            </div>
+          </div>
+        </div>
+
+      </div>
+
+      <!-- ── Progress Section (shown when running/done) ──────────────── -->
+      <div id="progress-section" class="hidden">
+
+        <!-- Step strip -->
+        <div class="bg-white border border-slate-200 rounded-xl shadow-sm p-5 mb-4">
+          <div class="flex items-center justify-between mb-4 flex-wrap gap-3">
+            <h2 class="text-sm font-semibold text-slate-900">Pipeline Progress</h2>
+            <div class="flex gap-5 text-xs text-slate-600 font-medium">
+              <span>Elapsed: <strong id="elapsed-display" class="text-brand-600">0s</strong></span>
+              <span>ICCIDs: <strong id="iccid-count-display" class="text-slate-800">—</strong></span>
+            </div>
+          </div>
+
+          <!-- Step dots -->
+          <div class="flex items-center mb-5 overflow-x-auto pb-1">
+            <div class="flex items-center min-w-max mx-auto gap-0">
+              <div class="step-node flex flex-col items-center gap-1" data-step="0">
+                <div class="step-circle w-8 h-8 rounded-full bg-slate-200 flex items-center justify-center text-xs font-bold text-slate-500 transition-all">1</div>
+                <span class="text-xs text-slate-500 whitespace-nowrap">CSV Ready</span>
+              </div>
+              <div class="w-10 h-0.5 bg-slate-200 step-line" data-after="0"></div>
+              <div class="step-node flex flex-col items-center gap-1" data-step="1">
+                <div class="step-circle w-8 h-8 rounded-full bg-slate-200 flex items-center justify-center text-xs font-bold text-slate-500 transition-all">2</div>
+                <span class="text-xs text-slate-500 whitespace-nowrap">Generate</span>
+              </div>
+              <div class="w-10 h-0.5 bg-slate-200 step-line" data-after="1"></div>
+              <div class="step-node flex flex-col items-center gap-1" data-step="2">
+                <div class="step-circle w-8 h-8 rounded-full bg-slate-200 flex items-center justify-center text-xs font-bold text-slate-500 transition-all">3</div>
+                <span class="text-xs text-slate-500 whitespace-nowrap">Upload SF</span>
+              </div>
+              <div class="w-10 h-0.5 bg-slate-200 step-line" data-after="2"></div>
+              <div class="step-node flex flex-col items-center gap-1" data-step="3">
+                <div class="step-circle w-8 h-8 rounded-full bg-slate-200 flex items-center justify-center text-xs font-bold text-slate-500 transition-all">4</div>
+                <span class="text-xs text-slate-500 whitespace-nowrap">Validate</span>
+              </div>
+              <div class="w-10 h-0.5 bg-slate-200 step-line" data-after="3"></div>
+              <div class="step-node flex flex-col items-center gap-1" data-step="4">
+                <div class="step-circle w-8 h-8 rounded-full bg-slate-200 flex items-center justify-center text-xs font-bold text-slate-500 transition-all">5</div>
+                <span class="text-xs text-slate-500 whitespace-nowrap">Retry</span>
+              </div>
+              <div class="w-10 h-0.5 bg-slate-200 step-line" data-after="4"></div>
+              <div class="step-node flex flex-col items-center gap-1" data-step="5">
+                <div class="step-circle w-8 h-8 rounded-full bg-slate-200 flex items-center justify-center text-xs font-bold text-slate-500 transition-all">&#10003;</div>
+                <span class="text-xs text-slate-500 whitespace-nowrap">Done</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- Progress bar -->
+          <div class="relative w-full h-8 bg-slate-100 rounded-lg overflow-hidden">
+            <div id="progress-fill" class="h-full transition-all duration-500 rounded-lg" style="width:0%"></div>
+            <div class="absolute inset-0 flex items-center justify-center gap-2">
+              <span id="progress-pct" class="text-xs font-bold text-slate-700">0%</span>
+              <span id="progress-label" class="text-xs text-slate-500">Waiting...</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Results strip (shown after validation) -->
+        <div id="results-strip" class="hidden grid grid-cols-3 gap-3 mb-4">
+          <div class="bg-emerald-50 border border-emerald-200 rounded-xl p-4 text-center">
+            <div class="text-2xl font-bold text-emerald-700" id="res-active">—</div>
+            <div class="text-xs text-emerald-600 mt-0.5">Orders Created</div>
+          </div>
+          <div class="bg-amber-50 border border-amber-200 rounded-xl p-4 text-center">
+            <div class="text-2xl font-bold text-amber-700" id="res-retry">—</div>
+            <div class="text-xs text-amber-600 mt-0.5">Retried</div>
+          </div>
+          <div class="bg-rose-50 border border-rose-200 rounded-xl p-4 text-center">
+            <div class="text-2xl font-bold text-rose-700" id="res-perm">—</div>
+            <div class="text-xs text-rose-600 mt-0.5">Perm. Failed</div>
+          </div>
+        </div>
+
+        <!-- Download report button (shown after pipeline completes) -->
+        <div id="download-row" class="hidden mb-4 flex justify-end">
+          <a href="/api/download/order-report" download="order_report.csv"
+             class="inline-flex items-center gap-2 bg-white border border-slate-200 hover:border-brand-400 hover:text-brand-600 text-slate-700 text-sm font-medium px-4 py-2 rounded-lg shadow-sm transition">
+            &#x21E9;&nbsp; Download Order Report
+          </a>
+        </div>
+
+        <!-- Live log terminal -->
+        <div class="bg-white border border-slate-200 rounded-xl shadow-sm p-5">
+          <div class="flex items-center justify-between mb-3">
+            <h3 class="text-sm font-semibold text-slate-900">Live Log</h3>
+            <div class="flex items-center gap-3">
+              <span id="log-running-dot" class="hidden flex items-center gap-1.5 text-xs text-emerald-600 font-medium">
+                <span class="w-1.5 h-1.5 rounded-full bg-emerald-500 dot-pulse inline-block"></span> Live
+              </span>
+              <button onclick="scrollLogToBottom()" class="text-xs text-slate-400 hover:text-slate-600 transition">&#x2193; Bottom</button>
+              <button onclick="clearLog()" class="text-xs text-slate-400 hover:text-slate-600 transition">Clear</button>
+            </div>
+          </div>
+          <pre class="terminal" id="live-log">(no output yet)</pre>
+        </div>
+
+      </div>
+    </section>
+
+    <!-- ─── HISTORY VIEW ────────────────────────────────────────────────── -->
+    <section id="section-history" class="p-8 max-w-5xl mx-auto hidden">
+      <div class="mb-6">
+        <h1 class="text-2xl font-semibold text-slate-900">Run History</h1>
+        <p class="text-sm text-slate-500 mt-1">Recent pipeline runs tracked in the local SQLite database.</p>
+      </div>
+
+      <div class="bg-white border border-slate-200 rounded-xl shadow-sm overflow-hidden">
+        <div class="flex items-center justify-between px-5 py-3 border-b border-slate-200">
+          <span class="text-sm font-semibold text-slate-700">Recent Runs</span>
+          <button onclick="loadHistory()" class="text-xs text-brand-600 hover:underline">Refresh</button>
+        </div>
+        <div class="overflow-x-auto">
+          <table class="w-full text-sm">
+            <thead class="bg-slate-50 text-xs text-slate-500 uppercase">
+              <tr>
+                <th class="text-left px-4 py-3">Date</th>
+                <th class="text-left px-4 py-3">Source</th>
+                <th class="text-left px-4 py-3">File</th>
+                <th class="text-left px-4 py-3">Status</th>
+                <th class="text-left px-4 py-3">Scheduled</th>
+              </tr>
+            </thead>
+            <tbody id="history-tbody" class="divide-y divide-slate-100">
+              <tr><td colspan="5" class="text-center py-8 text-slate-400 text-xs">Loading...</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+
+    <!-- ─── SETTINGS VIEW ───────────────────────────────────────────────── -->
+    <section id="section-settings" class="p-8 max-w-3xl mx-auto hidden">
+      <div class="mb-6">
+        <h1 class="text-2xl font-semibold text-slate-900">Settings</h1>
+        <p class="text-sm text-slate-500 mt-1">Pipeline schedule and retry configuration.</p>
+      </div>
+
+      <div class="bg-white border border-slate-200 rounded-xl shadow-sm p-6 mb-5">
+        <h3 class="text-sm font-semibold text-slate-900 mb-4">Processing Window (IST)</h3>
+        <div class="grid grid-cols-2 gap-4">
+          <div>
+            <label class="block text-xs font-medium text-slate-600 mb-1">Window Start</label>
+            <input type="time" id="cfg-start" class="w-full text-sm border border-slate-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-brand-500">
+          </div>
+          <div>
+            <label class="block text-xs font-medium text-slate-600 mb-1">Window End</label>
+            <input type="time" id="cfg-end" class="w-full text-sm border border-slate-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-brand-500">
+          </div>
+        </div>
+        <p class="text-xs text-slate-400 mt-2">Runs received outside this window are scheduled for the next window start. Runs that start before the end time continue until completion.</p>
+      </div>
+
+      <div class="bg-white border border-slate-200 rounded-xl shadow-sm p-6 mb-5">
+        <h3 class="text-sm font-semibold text-slate-900 mb-4">Retry</h3>
+        <div>
+          <label class="block text-xs font-medium text-slate-600 mb-1">Max Retry Attempts per ICCID</label>
+          <input type="number" id="cfg-retries" min="1" max="10"
+                 class="w-full text-sm border border-slate-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-brand-500">
+          <p class="text-xs text-slate-400 mt-1">After this many attempts an ICCID is marked permanently failed and written to <code class="font-mono">log/permanently_failed.csv</code>.</p>
+        </div>
+      </div>
+
+      <div class="flex justify-end">
+        <button onclick="saveSettings()"
+                class="bg-brand-600 hover:bg-brand-700 text-white text-sm font-medium px-5 py-2.5 rounded-lg transition shadow-sm">
+          Save Settings
+        </button>
+      </div>
+      <div id="settings-saved" class="hidden mt-3 text-sm text-emerald-600 text-right">Settings saved.</div>
+    </section>
+
+    <!-- ─── ADMIN VIEW ───────────────────────────────────────────────────── -->
+    <section id="section-admin" class="p-8 max-w-3xl mx-auto hidden">
+      <div class="mb-6">
+        <h1 class="text-2xl font-semibold text-slate-900">Admin</h1>
+        <p class="text-sm text-slate-500 mt-1">Salesforce connection management.</p>
+      </div>
+
+      <!-- Connection Status Card -->
+      <div class="bg-white border border-slate-200 rounded-xl shadow-sm p-6 mb-5">
+        <h3 class="text-sm font-semibold text-slate-900 mb-1">Salesforce Connection</h3>
+        <p class="text-xs text-slate-400 mb-4">Connected via <strong>SF CLI session</strong>. If the session expires, re-authenticate using the Auth URL method below.</p>
+
+        <div id="sf-status-card" class="border border-slate-200 rounded-lg px-5 py-4 flex items-center justify-between">
+          <div class="flex items-center gap-3">
+            <span id="sf-dot" class="w-2.5 h-2.5 rounded-full bg-slate-300"></span>
+            <div>
+              <div id="sf-status-label" class="text-sm font-medium text-slate-500">Checking...</div>
+              <div id="sf-status-detail" class="text-xs text-slate-400 mt-0.5"></div>
+            </div>
+          </div>
+          <div class="flex gap-2">
+            <button onclick="sfRefresh()"
+                    class="text-xs font-medium px-3 py-1.5 border border-slate-300 rounded-lg hover:bg-slate-50 transition flex items-center gap-1">
+              &#x21BB; Refresh
+            </button>
+            <button onclick="sfDisconnect()"
+                    class="text-xs font-medium px-3 py-1.5 border border-red-300 text-red-600 rounded-lg hover:bg-red-50 transition">
+              Disconnect
+            </button>
+          </div>
+        </div>
+        <div id="sf-action-msg" class="hidden mt-2 text-xs"></div>
+      </div>
+
+      <!-- Connect via Auth URL -->
+      <div class="bg-white border border-slate-200 rounded-xl shadow-sm p-6">
+        <h3 class="text-sm font-semibold text-slate-900 mb-0.5">Connect via Auth URL
+          <span class="ml-2 text-xs font-normal text-emerald-600 bg-emerald-50 border border-emerald-200 px-2 py-0.5 rounded-full">Recommended for server</span>
+        </h3>
+        <p class="text-xs text-slate-400 mb-5">Run these steps on your <strong>local machine</strong> where SF CLI is installed, then paste the auth URL below.</p>
+
+        <!-- Step 1 -->
+        <div class="flex gap-4 mb-5">
+          <div class="flex-shrink-0 w-6 h-6 rounded-full bg-brand-600 text-white text-xs font-bold flex items-center justify-center mt-0.5">1</div>
+          <div class="flex-1">
+            <div class="text-sm font-medium text-slate-800 mb-1">Login on your local machine <span class="text-xs font-normal text-slate-400">(skip if already logged in)</span></div>
+            <div class="text-xs text-slate-500 mb-2">This opens a browser and completes SSO. Required before you can export the auth URL.</div>
+            <div class="bg-slate-900 text-slate-200 font-mono text-xs px-4 py-3 rounded-lg select-all">sf org login web --alias sf-prod --instance-url https://cwc.my.salesforce.com</div>
+          </div>
+        </div>
+
+        <!-- Step 2 -->
+        <div class="flex gap-4 mb-5">
+          <div class="flex-shrink-0 w-6 h-6 rounded-full bg-brand-600 text-white text-xs font-bold flex items-center justify-center mt-0.5">2</div>
+          <div class="flex-1">
+            <div class="text-sm font-medium text-slate-800 mb-1">Export the auth URL</div>
+            <div class="text-xs text-slate-500 mb-2">Run this after logging in. Look for the <code class="bg-slate-100 px-1 rounded font-mono">sfdxAuthUrl</code> field in the JSON output.</div>
+            <div class="bg-slate-900 text-slate-200 font-mono text-xs px-4 py-3 rounded-lg select-all">sf org display --target-org sf-prod --verbose --json</div>
+            <div class="text-xs text-slate-400 mt-1.5">The value starts with <code class="font-mono">force://PlatformCLI::5Aep...@cwc.my.salesforce.com</code></div>
+          </div>
+        </div>
+
+        <!-- Step 3 -->
+        <div class="flex gap-4">
+          <div class="flex-shrink-0 w-6 h-6 rounded-full bg-brand-600 text-white text-xs font-bold flex items-center justify-center mt-0.5">3</div>
+          <div class="flex-1">
+            <div class="text-sm font-medium text-slate-800 mb-1">Paste and import</div>
+            <div class="text-xs text-slate-500 mb-2">Copy the full <code class="bg-slate-100 px-1 rounded font-mono">sfdxAuthUrl</code> value and paste it below. Click <strong>Import &amp; Connect</strong>.</div>
+            <div class="flex gap-2">
+              <input type="text" id="auth-url-input" placeholder="force://PlatformCLI::5Aep...@cwc.my.salesforce.com"
+                     class="flex-1 text-xs font-mono border border-slate-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-brand-500">
+              <button onclick="sfImportAuthUrl()"
+                      class="bg-brand-600 hover:bg-brand-700 text-white text-xs font-medium px-4 py-2 rounded-lg transition shadow-sm whitespace-nowrap">
+                Import &amp; Connect
+              </button>
+            </div>
+            <div id="import-msg" class="hidden mt-2 text-xs"></div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+  </main>
+</div>
+
+<script>
+// ─── State ───────────────────────────────────────────────────────────────────
+let _selectedFile  = null;
+let _pollInterval  = null;
+let _logInterval   = null;
+let _elapsedTimer  = null;
+let _elapsedSec    = 0;
+let _currentSection = 'pipeline';
+
+// ─── Navigation ──────────────────────────────────────────────────────────────
+function showSection(name) {
+  ['pipeline','history','settings','admin'].forEach(s => {
+    document.getElementById(`section-${s}`).classList.toggle('hidden', s !== name);
+    const btn = document.getElementById(`nav-${s}`);
+    if (s === name) {
+      btn.classList.add('text-white','bg-slate-700');
+      btn.classList.remove('text-slate-400','hover:text-white','hover:bg-slate-800');
+    } else {
+      btn.classList.remove('text-white','bg-slate-700');
+      btn.classList.add('text-slate-400','hover:text-white','hover:bg-slate-800');
+    }
+  });
+  _currentSection = name;
+  if (name === 'history') loadHistory();
+  if (name === 'admin') loadSfStatus();
+  if (name === 'settings') loadSettings();
+}
+
+// ─── File handling ────────────────────────────────────────────────────────────
+function _applyFile(f) {
+  _selectedFile = f;
+  document.getElementById('drop-label').textContent        = f.name;
+  document.getElementById('drop-sub').textContent          = `${(f.size/1024).toFixed(1)} KB — ready`;
+  document.getElementById('drop-zone').classList.add('border-brand-400', 'bg-brand-50');
+  document.getElementById('file-name-display').textContent = f.name;
+  document.getElementById('file-size-display').textContent = `${(f.size/1024).toFixed(1)} KB`;
+  document.getElementById('file-info').classList.remove('hidden');
+  document.getElementById('csv-run-btn').disabled          = false;
+}
+
+function onFileSelect(evt) {
+  const f = evt.target.files[0];
+  if (f) _applyFile(f);
+}
+
+function handleDrop(evt) {
+  evt.preventDefault();
+  document.getElementById('drop-zone').classList.remove('border-brand-400','bg-brand-50');
+  const f = evt.dataTransfer.files[0];
+  if (f) _applyFile(f);
+}
+
+// ─── Run CSV ──────────────────────────────────────────────────────────────────
+async function runCsv() {
+  if (!_selectedFile) return;
+  const btn = document.getElementById('csv-run-btn');
+  btn.disabled = true;
+  btn.textContent = 'Starting...';
+
+  const fd = new FormData();
+  fd.append('file', _selectedFile);
+
+  const resp = await fetch('/api/run/csv', { method: 'POST', body: fd });
+  if (resp.status === 409) {
+    alert('A pipeline is already running. Wait for it to complete.');
+    btn.disabled = false; btn.innerHTML = '&#x25B6;&nbsp; Start Pipeline';
+    return;
+  }
+  if (!resp.ok) {
+    alert('Failed to start pipeline. Check the server log.');
+    btn.disabled = false; btn.innerHTML = '&#x25B6;&nbsp; Start Pipeline';
+    return;
+  }
+
+  startPolling();
+}
+
+// ─── Progress polling ─────────────────────────────────────────────────────────
+function startPolling() {
+  document.getElementById('progress-section').classList.remove('hidden');
+  document.getElementById('results-strip').classList.add('hidden');
+  document.getElementById('download-row').classList.add('hidden');
+  document.getElementById('sidebar-status').classList.remove('hidden');
+  document.getElementById('live-log').textContent = '(starting...)';
+  resetStepDots();
+  setProgress(0, 'Starting...', false);
+
+  _elapsedSec = 0;
+  if (_elapsedTimer) clearInterval(_elapsedTimer);
+  _elapsedTimer = null;
+
+  if (_pollInterval) clearInterval(_pollInterval);
+  _pollInterval = setInterval(pollProgress, 2000);
+
+  if (_logInterval) clearInterval(_logInterval);
+  _logInterval = setInterval(pollLog, 3000);
+
+  pollProgress();
+  pollLog();
+}
+
+async function pollProgress() {
+  try {
+    const data = await fetch('/api/progress').then(r => r.json());
+    if (!data.available) return;
+
+    const pct   = data.percent || 0;
+    const label = data.detail || data.label || '';
+    setProgress(pct, label, data.status === 'running');
+    updateStepDots(data.step_index, data.status);
+
+    // Restore elapsed time correctly after page reload
+    if (data.started_at) {
+      const serverElapsed = Math.floor((Date.now() - new Date(data.started_at).getTime()) / 1000);
+      if (data.status === 'running') {
+        if (_elapsedTimer === null) {
+          _elapsedSec = serverElapsed;
+          _elapsedTimer = setInterval(() => {
+            _elapsedSec++;
+            document.getElementById('elapsed-display').textContent = fmtSeconds(_elapsedSec);
+            document.getElementById('sidebar-elapsed').textContent = _elapsedSec + 's elapsed';
+          }, 1000);
+        }
+      } else {
+        const finalSec = data.elapsed_seconds || serverElapsed;
+        document.getElementById('elapsed-display').textContent = fmtSeconds(finalSec);
+      }
+    }
+
+    if (data.total_iccids)
+      document.getElementById('iccid-count-display').textContent = (data.total_iccids).toLocaleString();
+
+    // Show results strip once we have validation data
+    if (data.active_count !== undefined || data.retry_count !== undefined) {
+      document.getElementById('results-strip').classList.remove('hidden');
+      document.getElementById('results-strip').style.display = 'grid';
+      document.getElementById('res-active').textContent = (data.active_count || 0).toLocaleString();
+      document.getElementById('res-retry').textContent  = (data.retry_count  || 0).toLocaleString();
+      document.getElementById('res-perm').textContent   = (data.perm_failed_count || 0).toLocaleString();
+    }
+
+    if (data.status === 'completed' || data.status === 'failed') {
+      stopPolling();
+      document.getElementById('sidebar-status').classList.add('hidden');
+      const btn = document.getElementById('csv-run-btn');
+      btn.disabled = false;
+      btn.innerHTML = '&#x25B6;&nbsp; Start Pipeline';
+      if (data.elapsed_seconds) _elapsedSec = data.elapsed_seconds;
+      if (data.status === 'completed')
+        document.getElementById('download-row').classList.remove('hidden');
+    }
+  } catch(e) { /* ignore */ }
+}
+
+async function pollLog() {
+  try {
+    const data = await fetch('/api/live-log').then(r => r.json());
+    const el   = document.getElementById('live-log');
+    if (data.content) {
+      const atBottom = el.scrollTop + el.clientHeight >= el.scrollHeight - 20;
+      el.textContent = data.content;
+      if (atBottom) el.scrollTop = el.scrollHeight;
+    }
+    const dot = document.getElementById('log-running-dot');
+    data.running ? dot.classList.remove('hidden') : dot.classList.add('hidden');
+  } catch(e) { /* ignore */ }
+}
+
+function stopPolling() {
+  if (_pollInterval) { clearInterval(_pollInterval); _pollInterval = null; }
+  if (_logInterval)  { clearInterval(_logInterval);  _logInterval  = null; }
+  if (_elapsedTimer) { clearInterval(_elapsedTimer); _elapsedTimer = null; }
+  // do one final log poll
+  pollLog();
+}
+
+// ─── Progress bar helpers ─────────────────────────────────────────────────────
+function setProgress(pct, label, running) {
+  const fill    = document.getElementById('progress-fill');
+  const pctEl   = document.getElementById('progress-pct');
+  const labelEl = document.getElementById('progress-label');
+
+  pctEl.textContent   = pct + '%';
+  labelEl.textContent = label;
+  fill.style.width    = pct + '%';
+
+  if (running) {
+    fill.className = 'h-full transition-all duration-500 rounded-lg progress-shimmer';
+  } else if (pct === 100) {
+    fill.className = 'h-full transition-all duration-500 rounded-lg bg-emerald-500';
+  } else if (pct === 0 && label.toLowerCase().includes('fail')) {
+    fill.className = 'h-full transition-all duration-500 rounded-lg bg-rose-500';
+  } else {
+    fill.className = 'h-full transition-all duration-500 rounded-lg bg-brand-500';
+  }
+}
+
+function resetStepDots() {
+  document.querySelectorAll('.step-circle').forEach(el => {
+    el.className = 'step-circle w-8 h-8 rounded-full bg-slate-200 flex items-center justify-center text-xs font-bold text-slate-500 transition-all';
+  });
+  document.querySelectorAll('.step-line').forEach(el => {
+    el.className = 'w-10 h-0.5 bg-slate-200 step-line';
+  });
+}
+
+function updateStepDots(activeIdx, status) {
+  document.querySelectorAll('.step-node').forEach(node => {
+    const idx    = parseInt(node.dataset.step);
+    const circle = node.querySelector('.step-circle');
+    if (status === 'failed' && idx === activeIdx) {
+      circle.className = 'step-circle w-8 h-8 rounded-full bg-rose-500 flex items-center justify-center text-xs font-bold text-white transition-all';
+    } else if (status === 'completed' || idx < activeIdx) {
+      circle.className = 'step-circle w-8 h-8 rounded-full bg-emerald-500 flex items-center justify-center text-xs font-bold text-white transition-all';
+    } else if (idx === activeIdx) {
+      circle.className = 'step-circle w-8 h-8 rounded-full bg-brand-600 flex items-center justify-center text-xs font-bold text-white dot-pulse transition-all';
+    } else {
+      circle.className = 'step-circle w-8 h-8 rounded-full bg-slate-200 flex items-center justify-center text-xs font-bold text-slate-500 transition-all';
+    }
+  });
+  document.querySelectorAll('.step-line').forEach(el => {
+    const after = parseInt(el.dataset.after);
+    if (status === 'completed' || after < activeIdx) {
+      el.className = 'w-10 h-0.5 bg-emerald-400 step-line';
+    } else {
+      el.className = 'w-10 h-0.5 bg-slate-200 step-line';
+    }
+  });
+}
+
+// ─── Log helpers ───────────────────────────────────────────────────────────────
+function scrollLogToBottom() {
+  const el = document.getElementById('live-log');
+  el.scrollTop = el.scrollHeight;
+}
+
+function clearLog() {
+  document.getElementById('live-log').textContent = '';
+}
+
+// ─── History ──────────────────────────────────────────────────────────────────
+async function loadHistory() {
+  const tbody = document.getElementById('history-tbody');
+  tbody.innerHTML = '<tr><td colspan="5" class="text-center py-8 text-slate-400 text-xs">Loading...</td></tr>';
+  try {
+    const rows = await fetch('/api/history').then(r => r.json());
+    if (!rows.length) {
+      tbody.innerHTML = '<tr><td colspan="5" class="text-center py-8 text-slate-400 text-xs">No runs yet.</td></tr>';
+      return;
+    }
+    tbody.innerHTML = rows.map(r => {
+      const statusBadge = {
+        'queued':     '<span class="px-2 py-0.5 rounded-full bg-slate-100 text-slate-600 text-xs">queued</span>',
+        'processing': '<span class="px-2 py-0.5 rounded-full bg-blue-100 text-blue-700 text-xs">running</span>',
+        'completed':  '<span class="px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-700 text-xs">done</span>',
+        'failed':     '<span class="px-2 py-0.5 rounded-full bg-rose-100 text-rose-700 text-xs">failed</span>',
+      }[r.status] || `<span class="text-xs text-slate-500">${r.status}</span>`;
+
+      const source = r.attachment_id ? 'jira' : 'csv';
+      return `<tr class="hover:bg-slate-50">
+        <td class="px-4 py-3 text-xs text-slate-500">${r.created_at ? r.created_at.slice(0,16) : '—'}</td>
+        <td class="px-4 py-3"><span class="text-xs font-medium px-2 py-0.5 rounded-full ${source==='jira'?'bg-purple-100 text-purple-700':'bg-sky-100 text-sky-700'}">${source}</span></td>
+        <td class="px-4 py-3 text-xs text-slate-700 max-w-xs truncate" title="${r.filename||''}">${r.filename || '—'}</td>
+        <td class="px-4 py-3">${statusBadge}</td>
+        <td class="px-4 py-3 text-xs text-slate-500">${r.run_at ? r.run_at.slice(0,16) : '—'}</td>
+      </tr>`;
+    }).join('');
+  } catch(e) {
+    tbody.innerHTML = '<tr><td colspan="5" class="text-center py-8 text-rose-400 text-xs">Failed to load history.</td></tr>';
+  }
+}
+
+// ─── Settings ─────────────────────────────────────────────────────────────────
+async function loadSettings() {
+  const cfg = await fetch('/api/config').then(r => r.json());
+  document.getElementById('cfg-start').value   = cfg.processing_window_start_ist || '07:00';
+  document.getElementById('cfg-end').value     = cfg.processing_window_end_ist   || '17:00';
+  document.getElementById('cfg-retries').value = cfg.max_retry_attempts          || 3;
+}
+
+async function saveSettings() {
+  const body = {
+    processing_window_start_ist: document.getElementById('cfg-start').value,
+    processing_window_end_ist:   document.getElementById('cfg-end').value,
+    max_retry_attempts:          parseInt(document.getElementById('cfg-retries').value) || 3,
+  };
+  await fetch('/api/config', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body),
+  });
+  const saved = document.getElementById('settings-saved');
+  saved.classList.remove('hidden');
+  setTimeout(() => saved.classList.add('hidden'), 2500);
+}
+
+// ─── Utils ────────────────────────────────────────────────────────────────────
+function fmtSeconds(s) {
+  if (s < 60) return s + 's';
+  const m = Math.floor(s / 60), ss = s % 60;
+  return m + 'm ' + (ss < 10 ? '0' : '') + ss + 's';
+}
+
+// ─── SF Connection ────────────────────────────────────────────────────────────
+async function loadSfStatus() {
+  const dot   = document.getElementById('sf-dot');
+  const label = document.getElementById('sf-status-label');
+  const detail= document.getElementById('sf-status-detail');
+  label.textContent = 'Checking...';
+  detail.textContent = '';
+  dot.className = 'w-2.5 h-2.5 rounded-full bg-slate-300';
+  try {
+    const d = await fetch('/api/sf/status').then(r => r.json());
+    if (d.connected) {
+      dot.className = 'w-2.5 h-2.5 rounded-full bg-emerald-500';
+      label.textContent = 'Connected';
+      label.className = 'text-sm font-medium text-emerald-700';
+      detail.textContent = `${d.username || ''} · ${d.instance_url || ''} · alias: ${d.alias || ''}`;
+    } else {
+      dot.className = 'w-2.5 h-2.5 rounded-full bg-red-500';
+      label.textContent = 'Disconnected';
+      label.className = 'text-sm font-medium text-red-600';
+      detail.textContent = d.error || 'SF CLI session expired — use Auth URL below to reconnect';
+    }
+  } catch(e) {
+    dot.className = 'w-2.5 h-2.5 rounded-full bg-red-500';
+    label.textContent = 'Error';
+    label.className = 'text-sm font-medium text-red-600';
+    detail.textContent = 'Could not reach server';
+  }
+}
+
+async function sfRefresh() {
+  const msg = document.getElementById('sf-action-msg');
+  msg.className = 'mt-2 text-xs text-slate-500';
+  msg.textContent = 'Refreshing...';
+  msg.classList.remove('hidden');
+  await fetch('/api/sf/refresh', { method: 'POST' });
+  await loadSfStatus();
+  msg.classList.add('hidden');
+}
+
+async function sfDisconnect() {
+  if (!confirm('Disconnect from Salesforce? You will need to re-authenticate to run the pipeline.')) return;
+  const msg = document.getElementById('sf-action-msg');
+  msg.className = 'mt-2 text-xs text-slate-500';
+  msg.textContent = 'Disconnecting...';
+  msg.classList.remove('hidden');
+  const r = await fetch('/api/sf/disconnect', { method: 'POST' }).then(d => d.json());
+  msg.textContent = r.message || 'Done';
+  await loadSfStatus();
+}
+
+async function sfImportAuthUrl() {
+  const url = document.getElementById('auth-url-input').value.trim();
+  const msg = document.getElementById('import-msg');
+  if (!url) { msg.className = 'mt-2 text-xs text-red-500'; msg.textContent = 'Paste the sfdxAuthUrl first.'; msg.classList.remove('hidden'); return; }
+  msg.className = 'mt-2 text-xs text-slate-500';
+  msg.textContent = 'Importing...';
+  msg.classList.remove('hidden');
+  const r = await fetch('/api/sf/import-auth-url', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ auth_url: url }),
+  }).then(d => d.json());
+  if (r.success) {
+    msg.className = 'mt-2 text-xs text-emerald-600';
+    msg.textContent = 'Connected successfully!';
+    document.getElementById('auth-url-input').value = '';
+    await loadSfStatus();
+  } else {
+    msg.className = 'mt-2 text-xs text-red-500';
+    msg.textContent = r.error || 'Import failed';
+  }
+}
+
+// ─── Init ─────────────────────────────────────────────────────────────────────
+(async () => {
+  // Check if a run is already in progress (page refresh while running)
+  try {
+    const status = await fetch('/api/status').then(r => r.json());
+    if (status.running) startPolling();
+  } catch(e) {}
+})();
+</script>
+
+</body>
+</html>

@@ -1,0 +1,18 @@
+{
+  "optionload": "",
+  "mitobasepath": "",
+  "awsenvironment": "",
+  "sfenvironment": "prod",
+  "bucketname": "",
+  "s3files": [
+  
+    {
+      "entity": "order_item",
+      "filename": "Order_Item_M2M.csv",
+      "sourcepath": "data/",
+      "targetpath": "archivos_salida/",
+      "logpath": "log/",
+      "errorpath": "log/error/"
+    }
+  ]
+}

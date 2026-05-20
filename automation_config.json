@@ -1,0 +1,6 @@
+{
+  "jira_ticket_id": "",
+  "processing_window_start_ist": "07:00",
+  "processing_window_end_ist": "17:00",
+  "max_retry_attempts": 3
+}
