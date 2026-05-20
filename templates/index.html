@@ -462,7 +462,7 @@ async function pollProgress() {
       btn.disabled = false;
       btn.innerHTML = '&#x25B6;&nbsp; Start Pipeline';
       if (data.elapsed_seconds) _elapsedSec = data.elapsed_seconds;
-      if (data.status === 'completed')
+      if (data.status === 'completed' && data.has_report !== false)
         document.getElementById('download-row').classList.remove('hidden');
     }
   } catch(e) { /* ignore */ }

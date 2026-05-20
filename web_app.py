@@ -163,6 +163,7 @@ def _run_pipeline(source: str, filename: str, file_id: int = 0):
                             source=source, filename=filename,
                             total_iccids=skipped_count, active_count=skipped_count,
                             retry_count=0, perm_failed=0,
+                            has_report=False,
                             started_at=started_at.isoformat())
             print('[Badger] All ICCIDs already Active in Salesforce Asset — pipeline skipped')
             return
