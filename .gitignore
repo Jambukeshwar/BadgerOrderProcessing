@@ -46,9 +46,12 @@ dist/**
 *.xlf
 package.nls.*.json
 l10n/
-# Data files (may contain sensitive ICCID/order data)
-data/*.csv
-data/*.CSV
+# Data files — generated/input (do not commit)
+data/input_iccid.csv
+data/LBPR00015_4500006921.csv
+data/LBPR00015_4500006921.CSV
+data/Order_item_M2M.csv
+data/Order_Item_M2M.csv
 data/*.log
 data/*.txt
 data/*.sty

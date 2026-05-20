@@ -113,6 +113,6 @@ def clean_output_file(output_file):
         print(f"An error occurred while cleaning the file: {e}")
 
 # Script usage
-input_file = r'data/LBPR00015_4500006921.CSV'  # Adjusted path for the input file
+input_file = r'data/LBPR00015_4500006921.csv'
 output_file = r'data/Order_item_M2M.csv'
 process_csv(input_file, output_file)
