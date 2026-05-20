@@ -408,22 +408,13 @@ async def get_history():
 
 @app.get('/api/sf/status')
 async def sf_status():
-    import subprocess, json as _json
-    alias = os.environ.get('SF_ORG_ALIAS', 'sf-prod')
     try:
-        r = subprocess.run(
-            f'sf org display --target-org {alias} --json',
-            shell=True, capture_output=True, text=True, timeout=30
-        )
-        data = _json.loads(r.stdout)
-        if r.returncode != 0 or 'result' not in data:
-            return {'connected': False, 'error': data.get('message', r.stderr.strip())}
-        res = data['result']
+        from automation.sf_validator import _get_sf
+        sf = _get_sf()
         return {
             'connected':    True,
-            'username':     res.get('username', ''),
-            'instance_url': res.get('instanceUrl', ''),
-            'alias':        alias,
+            'username':     os.environ.get('SF_USERNAME', ''),
+            'instance_url': sf.sf_instance,
         }
     except Exception as e:
         return {'connected': False, 'error': str(e)}
@@ -444,47 +435,10 @@ async def sf_refresh():
 
 @app.post('/api/sf/disconnect')
 async def sf_disconnect():
-    import subprocess
     import automation.sf_validator as _sfv
     _sfv._sf_client = None
     _sfv._sf_ts = 0.0
-    alias = os.environ.get('SF_ORG_ALIAS', 'sf-prod')
-    try:
-        subprocess.run(
-            f'sf org logout --target-org {alias} --no-prompt',
-            shell=True, capture_output=True, text=True, timeout=30
-        )
-        return {'success': True, 'message': f'Disconnected from {alias}'}
-    except Exception as e:
-        return {'success': False, 'message': str(e)}
-
-
-@app.post('/api/sf/import-auth-url')
-async def sf_import_auth_url(request: Request):
-    import subprocess, tempfile, os as _os
-    body     = await request.json()
-    auth_url = (body.get('auth_url') or '').strip()
-    if not auth_url or not auth_url.startswith('force://'):
-        return JSONResponse({'success': False, 'error': 'Invalid auth URL — must start with force://'}, status_code=400)
-    alias = os.environ.get('SF_ORG_ALIAS', 'sf-prod')
-    try:
-        with tempfile.NamedTemporaryFile(mode='w', suffix='.txt', delete=False) as f:
-            f.write(auth_url)
-            tmp = f.name
-        r = subprocess.run(
-            f'sf org login sfdx-url --sfdx-url-file "{tmp}" --alias {alias}',
-            shell=True, capture_output=True, text=True, timeout=60
-        )
-        _os.unlink(tmp)
-        if r.returncode != 0:
-            return {'success': False, 'error': r.stderr.strip() or r.stdout.strip()}
-        import automation.sf_validator as _sfv
-        _sfv._sf_client = None
-        _sfv._sf_ts = 0.0
-        _sfv._get_sf()
-        return {'success': True}
-    except Exception as e:
-        return {'success': False, 'error': str(e)}
+    return {'success': True, 'message': 'Salesforce session cleared'}
 
 
 @app.get('/api/config')

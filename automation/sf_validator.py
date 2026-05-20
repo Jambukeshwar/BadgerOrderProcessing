@@ -1,5 +1,3 @@
-import subprocess
-import json
 import os
 import pandas as pd
 from pathlib import Path
@@ -24,18 +22,19 @@ def _get_sf() -> Salesforce:
     if _sf_client and (time.time() - _sf_ts) < _SF_TTL_SECONDS:
         return _sf_client
 
-    alias = os.environ.get('SF_ORG_ALIAS', 'sf-prod')
-    result = subprocess.run(
-        f'sf org display --target-org {alias} --json',
-        shell=True, capture_output=True, text=True, timeout=30
-    )
-    if result.returncode != 0:
-        raise RuntimeError(f'SF CLI error: {result.stderr}')
+    username       = os.environ.get('SF_USERNAME', '')
+    password       = os.environ.get('SF_PASSWORD', '')
+    security_token = os.environ.get('SF_SECURITY_TOKEN', '')
+    domain         = os.environ.get('SF_DOMAIN', 'login')
 
-    data = json.loads(result.stdout)
+    if not username or not password:
+        raise RuntimeError('SF_USERNAME and SF_PASSWORD must be set in .env.local')
+
     _sf_client = Salesforce(
-        instance_url=data['result']['instanceUrl'],
-        session_id=data['result']['accessToken']
+        username=username,
+        password=password,
+        security_token=security_token,
+        domain=domain
     )
     _sf_ts = time.time()
     return _sf_client
