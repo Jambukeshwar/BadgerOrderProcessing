@@ -63,10 +63,6 @@
               class="nav-btn w-full flex items-center gap-2.5 px-3 py-2 rounded-md text-sm text-slate-400 hover:text-white hover:bg-slate-800 transition">
         <span class="text-base">&#9881;</span> Settings
       </button>
-      <button onclick="showSection('admin')" id="nav-admin"
-              class="nav-btn w-full flex items-center gap-2.5 px-3 py-2 rounded-md text-sm text-slate-400 hover:text-white hover:bg-slate-800 transition">
-        <span class="text-base">&#x1F517;</span> Admin
-      </button>
     </nav>
 
     <!-- Run status indicator -->
@@ -300,87 +296,6 @@
       <div id="settings-saved" class="hidden mt-3 text-sm text-emerald-600 text-right">Settings saved.</div>
     </section>
 
-    <!-- ─── ADMIN VIEW ───────────────────────────────────────────────────── -->
-    <section id="section-admin" class="p-8 max-w-3xl mx-auto hidden">
-      <div class="mb-6">
-        <h1 class="text-2xl font-semibold text-slate-900">Admin</h1>
-        <p class="text-sm text-slate-500 mt-1">Salesforce connection management.</p>
-      </div>
-
-      <!-- Connection Status Card -->
-      <div class="bg-white border border-slate-200 rounded-xl shadow-sm p-6 mb-5">
-        <h3 class="text-sm font-semibold text-slate-900 mb-1">Salesforce Connection</h3>
-        <p class="text-xs text-slate-400 mb-4">Connected via <strong>SF CLI session</strong>. If the session expires, re-authenticate using the Auth URL method below.</p>
-
-        <div id="sf-status-card" class="border border-slate-200 rounded-lg px-5 py-4 flex items-center justify-between">
-          <div class="flex items-center gap-3">
-            <span id="sf-dot" class="w-2.5 h-2.5 rounded-full bg-slate-300"></span>
-            <div>
-              <div id="sf-status-label" class="text-sm font-medium text-slate-500">Checking...</div>
-              <div id="sf-status-detail" class="text-xs text-slate-400 mt-0.5"></div>
-            </div>
-          </div>
-          <div class="flex gap-2">
-            <button onclick="sfRefresh()"
-                    class="text-xs font-medium px-3 py-1.5 border border-slate-300 rounded-lg hover:bg-slate-50 transition flex items-center gap-1">
-              &#x21BB; Refresh
-            </button>
-            <button onclick="sfDisconnect()"
-                    class="text-xs font-medium px-3 py-1.5 border border-red-300 text-red-600 rounded-lg hover:bg-red-50 transition">
-              Disconnect
-            </button>
-          </div>
-        </div>
-        <div id="sf-action-msg" class="hidden mt-2 text-xs"></div>
-      </div>
-
-      <!-- Connect via Auth URL -->
-      <div class="bg-white border border-slate-200 rounded-xl shadow-sm p-6">
-        <h3 class="text-sm font-semibold text-slate-900 mb-0.5">Connect via Auth URL
-          <span class="ml-2 text-xs font-normal text-emerald-600 bg-emerald-50 border border-emerald-200 px-2 py-0.5 rounded-full">Recommended for server</span>
-        </h3>
-        <p class="text-xs text-slate-400 mb-5">Run these steps on your <strong>local machine</strong> where SF CLI is installed, then paste the auth URL below.</p>
-
-        <!-- Step 1 -->
-        <div class="flex gap-4 mb-5">
-          <div class="flex-shrink-0 w-6 h-6 rounded-full bg-brand-600 text-white text-xs font-bold flex items-center justify-center mt-0.5">1</div>
-          <div class="flex-1">
-            <div class="text-sm font-medium text-slate-800 mb-1">Login on your local machine <span class="text-xs font-normal text-slate-400">(skip if already logged in)</span></div>
-            <div class="text-xs text-slate-500 mb-2">This opens a browser and completes SSO. Required before you can export the auth URL.</div>
-            <div class="bg-slate-900 text-slate-200 font-mono text-xs px-4 py-3 rounded-lg select-all">sf org login web --alias sf-prod --instance-url https://cwc.my.salesforce.com</div>
-          </div>
-        </div>
-
-        <!-- Step 2 -->
-        <div class="flex gap-4 mb-5">
-          <div class="flex-shrink-0 w-6 h-6 rounded-full bg-brand-600 text-white text-xs font-bold flex items-center justify-center mt-0.5">2</div>
-          <div class="flex-1">
-            <div class="text-sm font-medium text-slate-800 mb-1">Export the auth URL</div>
-            <div class="text-xs text-slate-500 mb-2">Run this after logging in. Look for the <code class="bg-slate-100 px-1 rounded font-mono">sfdxAuthUrl</code> field in the JSON output.</div>
-            <div class="bg-slate-900 text-slate-200 font-mono text-xs px-4 py-3 rounded-lg select-all">sf org display --target-org sf-prod --verbose --json</div>
-            <div class="text-xs text-slate-400 mt-1.5">The value starts with <code class="font-mono">force://PlatformCLI::5Aep...@cwc.my.salesforce.com</code></div>
-          </div>
-        </div>
-
-        <!-- Step 3 -->
-        <div class="flex gap-4">
-          <div class="flex-shrink-0 w-6 h-6 rounded-full bg-brand-600 text-white text-xs font-bold flex items-center justify-center mt-0.5">3</div>
-          <div class="flex-1">
-            <div class="text-sm font-medium text-slate-800 mb-1">Paste and import</div>
-            <div class="text-xs text-slate-500 mb-2">Copy the full <code class="bg-slate-100 px-1 rounded font-mono">sfdxAuthUrl</code> value and paste it below. Click <strong>Import &amp; Connect</strong>.</div>
-            <div class="flex gap-2">
-              <input type="text" id="auth-url-input" placeholder="force://PlatformCLI::5Aep...@cwc.my.salesforce.com"
-                     class="flex-1 text-xs font-mono border border-slate-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-brand-500">
-              <button onclick="sfImportAuthUrl()"
-                      class="bg-brand-600 hover:bg-brand-700 text-white text-xs font-medium px-4 py-2 rounded-lg transition shadow-sm whitespace-nowrap">
-                Import &amp; Connect
-              </button>
-            </div>
-            <div id="import-msg" class="hidden mt-2 text-xs"></div>
-          </div>
-        </div>
-      </div>
-    </section>
 
   </main>
 </div>
@@ -396,7 +311,7 @@ let _currentSection = 'pipeline';
 
 // ─── Navigation ──────────────────────────────────────────────────────────────
 function showSection(name) {
-  ['pipeline','history','settings','admin'].forEach(s => {
+  ['pipeline','history','settings'].forEach(s => {
     document.getElementById(`section-${s}`).classList.toggle('hidden', s !== name);
     const btn = document.getElementById(`nav-${s}`);
     if (s === name) {
@@ -409,7 +324,6 @@ function showSection(name) {
   });
   _currentSection = name;
   if (name === 'history') loadHistory();
-  if (name === 'admin') loadSfStatus();
   if (name === 'settings') loadSettings();
 }
 
@@ -688,78 +602,6 @@ function fmtSeconds(s) {
   return m + 'm ' + (ss < 10 ? '0' : '') + ss + 's';
 }
 
-// ─── SF Connection ────────────────────────────────────────────────────────────
-async function loadSfStatus() {
-  const dot   = document.getElementById('sf-dot');
-  const label = document.getElementById('sf-status-label');
-  const detail= document.getElementById('sf-status-detail');
-  label.textContent = 'Checking...';
-  detail.textContent = '';
-  dot.className = 'w-2.5 h-2.5 rounded-full bg-slate-300';
-  try {
-    const d = await fetch('/api/sf/status').then(r => r.json());
-    if (d.connected) {
-      dot.className = 'w-2.5 h-2.5 rounded-full bg-emerald-500';
-      label.textContent = 'Connected';
-      label.className = 'text-sm font-medium text-emerald-700';
-      detail.textContent = `${d.username || ''} · ${d.instance_url || ''} · alias: ${d.alias || ''}`;
-    } else {
-      dot.className = 'w-2.5 h-2.5 rounded-full bg-red-500';
-      label.textContent = 'Disconnected';
-      label.className = 'text-sm font-medium text-red-600';
-      detail.textContent = d.error || 'SF CLI session expired — use Auth URL below to reconnect';
-    }
-  } catch(e) {
-    dot.className = 'w-2.5 h-2.5 rounded-full bg-red-500';
-    label.textContent = 'Error';
-    label.className = 'text-sm font-medium text-red-600';
-    detail.textContent = 'Could not reach server';
-  }
-}
-
-async function sfRefresh() {
-  const msg = document.getElementById('sf-action-msg');
-  msg.className = 'mt-2 text-xs text-slate-500';
-  msg.textContent = 'Refreshing...';
-  msg.classList.remove('hidden');
-  await fetch('/api/sf/refresh', { method: 'POST' });
-  await loadSfStatus();
-  msg.classList.add('hidden');
-}
-
-async function sfDisconnect() {
-  if (!confirm('Disconnect from Salesforce? You will need to re-authenticate to run the pipeline.')) return;
-  const msg = document.getElementById('sf-action-msg');
-  msg.className = 'mt-2 text-xs text-slate-500';
-  msg.textContent = 'Disconnecting...';
-  msg.classList.remove('hidden');
-  const r = await fetch('/api/sf/disconnect', { method: 'POST' }).then(d => d.json());
-  msg.textContent = r.message || 'Done';
-  await loadSfStatus();
-}
-
-async function sfImportAuthUrl() {
-  const url = document.getElementById('auth-url-input').value.trim();
-  const msg = document.getElementById('import-msg');
-  if (!url) { msg.className = 'mt-2 text-xs text-red-500'; msg.textContent = 'Paste the sfdxAuthUrl first.'; msg.classList.remove('hidden'); return; }
-  msg.className = 'mt-2 text-xs text-slate-500';
-  msg.textContent = 'Importing...';
-  msg.classList.remove('hidden');
-  const r = await fetch('/api/sf/import-auth-url', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ auth_url: url }),
-  }).then(d => d.json());
-  if (r.success) {
-    msg.className = 'mt-2 text-xs text-emerald-600';
-    msg.textContent = 'Connected successfully!';
-    document.getElementById('auth-url-input').value = '';
-    await loadSfStatus();
-  } else {
-    msg.className = 'mt-2 text-xs text-red-500';
-    msg.textContent = r.error || 'Import failed';
-  }
-}
 
 // ─── Init ─────────────────────────────────────────────────────────────────────
 (async () => {

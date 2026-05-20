@@ -406,39 +406,6 @@ async def get_history():
         conn.close()
 
 
-@app.get('/api/sf/status')
-async def sf_status():
-    try:
-        from automation.sf_validator import _get_sf
-        sf = _get_sf()
-        return {
-            'connected':    True,
-            'username':     os.environ.get('SF_USERNAME', ''),
-            'instance_url': sf.sf_instance,
-        }
-    except Exception as e:
-        return {'connected': False, 'error': str(e)}
-
-
-@app.post('/api/sf/refresh')
-async def sf_refresh():
-    from automation.sf_validator import _sf_client, _sf_ts
-    import automation.sf_validator as _sfv
-    _sfv._sf_client = None
-    _sfv._sf_ts = 0.0
-    try:
-        _sfv._get_sf()
-        return {'success': True}
-    except Exception as e:
-        return {'success': False, 'error': str(e)}
-
-
-@app.post('/api/sf/disconnect')
-async def sf_disconnect():
-    import automation.sf_validator as _sfv
-    _sfv._sf_client = None
-    _sfv._sf_ts = 0.0
-    return {'success': True, 'message': 'Salesforce session cleared'}
 
 
 @app.get('/api/config')
