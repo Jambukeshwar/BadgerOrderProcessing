@@ -19,7 +19,7 @@ def main():
     
     # Ejecutar ProcessCSV.py
     logger.info('Executing ProcessCSV.py...')
-    subprocess.run(['python', 'ProcessCSV.py'], check=True)  # Llama al script ProcessCSV.py
+    subprocess.run([sys.executable, 'processCSV.py'], check=True)
     
     with open('config.json') as f:
         data = json.load(f)
