@@ -74,6 +74,21 @@
       <div class="text-xs text-slate-500 mt-1" id="sidebar-elapsed">0s elapsed</div>
     </div>
 
+    <!-- SF connection status -->
+    <div class="px-4 py-3 border-t border-slate-800">
+      <div class="flex items-center justify-between">
+        <div class="flex items-center gap-2">
+          <span id="sf-indicator" class="w-2 h-2 rounded-full bg-slate-500"></span>
+          <span id="sf-indicator-label" class="text-xs text-slate-400">Salesforce</span>
+        </div>
+        <button onclick="checkSfStatus()" id="sf-check-btn"
+                class="text-xs text-slate-500 hover:text-slate-300 transition px-1">
+          &#x21BB;
+        </button>
+      </div>
+      <div id="sf-indicator-detail" class="text-xs text-slate-600 mt-0.5 truncate"></div>
+    </div>
+
     <div class="px-5 py-3 border-t border-slate-800 text-xs text-slate-500">
       Developed by <span class="text-slate-300 font-medium">Gowtham Krishna</span>
     </div>
@@ -603,13 +618,44 @@ function fmtSeconds(s) {
 }
 
 
+// ─── SF Status ───────────────────────────────────────────────────────────────
+async function checkSfStatus() {
+  const dot    = document.getElementById('sf-indicator');
+  const label  = document.getElementById('sf-indicator-label');
+  const detail = document.getElementById('sf-indicator-detail');
+  const btn    = document.getElementById('sf-check-btn');
+  btn.style.opacity = '0.4';
+  label.textContent = 'Checking...';
+  dot.className = 'w-2 h-2 rounded-full bg-slate-500';
+  try {
+    const d = await fetch('/api/sf/status').then(r => r.json());
+    if (d.connected) {
+      dot.className = 'w-2 h-2 rounded-full bg-emerald-400';
+      label.className = 'text-xs text-emerald-400';
+      label.textContent = 'SF Connected';
+      detail.textContent = d.username || '';
+    } else {
+      dot.className = 'w-2 h-2 rounded-full bg-red-500';
+      label.className = 'text-xs text-red-400';
+      label.textContent = 'SF Disconnected';
+      detail.textContent = d.error || '';
+    }
+  } catch(e) {
+    dot.className = 'w-2 h-2 rounded-full bg-red-500';
+    label.className = 'text-xs text-red-400';
+    label.textContent = 'SF Error';
+    detail.textContent = '';
+  }
+  btn.style.opacity = '1';
+}
+
 // ─── Init ─────────────────────────────────────────────────────────────────────
 (async () => {
-  // Check if a run is already in progress (page refresh while running)
   try {
     const status = await fetch('/api/status').then(r => r.json());
     if (status.running) startPolling();
   } catch(e) {}
+  checkSfStatus();
 })();
 </script>
 

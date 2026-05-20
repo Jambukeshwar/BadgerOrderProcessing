@@ -408,6 +408,16 @@ async def get_history():
 
 
 
+@app.get('/api/sf/status')
+async def sf_status():
+    try:
+        from automation.sf_validator import _get_sf
+        sf = _get_sf()
+        return {'connected': True, 'username': os.environ.get('SF_USERNAME', ''), 'instance_url': sf.sf_instance}
+    except Exception as e:
+        return {'connected': False, 'error': str(e)}
+
+
 @app.get('/api/config')
 async def get_config():
     config = _load_config()
