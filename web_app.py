@@ -379,6 +379,11 @@ async def download_order_report():
     return FileResponse(str(report), media_type='text/csv', filename='order_report.csv')
 
 
+@app.get('/api/report/exists')
+async def report_exists():
+    return {'exists': (ROOT / 'log' / 'order_report.csv').exists()}
+
+
 @app.get('/api/live-log')
 async def get_live_log():
     if not LIVE_LOG_FILE.exists():

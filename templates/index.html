@@ -656,6 +656,10 @@ async function checkSfStatus() {
     if (status.running) startPolling();
   } catch(e) {}
   checkSfStatus();
+  try {
+    const r = await fetch('/api/report/exists').then(r => r.json());
+    if (r.exists) document.getElementById('download-row').classList.remove('hidden');
+  } catch(e) {}
 })();
 </script>
 
