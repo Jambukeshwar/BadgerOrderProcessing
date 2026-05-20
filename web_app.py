@@ -282,20 +282,16 @@ async def run_csv(file: UploadFile = File(...)):
     import pandas as pd
     import io
 
-    filename = file.filename or 'input_iccid.csv'
+    filename = file.filename or 'input_iccid.txt'
     raw = await file.read()
 
-    # Parse and normalise — rename the first column to 'ICCID' so generatecsv.py
-    # always finds it regardless of what header the user's file has.
+    # Parse TXT — one ICCID per line, strip whitespace, drop blanks
     try:
-        df = pd.read_csv(io.BytesIO(raw), dtype=str)
-        first_col = df.columns[0]
-        if first_col != 'ICCID':
-            df = df.rename(columns={first_col: 'ICCID'})
-        # Keep only the ICCID column; drop blank rows
-        df = df[['ICCID']].dropna().loc[df['ICCID'].str.strip() != '']
+        lines = raw.decode('utf-8', errors='replace').splitlines()
+        iccid_list = [l.strip() for l in lines if l.strip()]
+        df = pd.DataFrame({'ICCID': iccid_list})
     except Exception as e:
-        return JSONResponse({'error': f'Could not parse CSV: {e}'}, status_code=400)
+        return JSONResponse({'error': f'Could not parse file: {e}'}, status_code=400)
 
     if df.empty:
         return JSONResponse({'error': 'No ICCID values found in the uploaded file.'}, status_code=400)

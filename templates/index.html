@@ -102,13 +102,13 @@
 
       <div class="mb-6">
         <h1 class="text-2xl font-semibold text-slate-900">ICCID Order Pipeline</h1>
-        <p class="text-sm text-slate-500 mt-1">Upload an ICCID CSV file to run the full Salesforce order pipeline.</p>
+        <p class="text-sm text-slate-500 mt-1">Upload an ICCID TXT file to run the full Salesforce order pipeline.</p>
       </div>
 
       <!-- ── CSV Upload Card ──────────────────────────────────────────── -->
       <div class="bg-white border border-slate-200 rounded-xl shadow-sm mb-6">
         <div class="px-6 pt-5 pb-2 border-b border-slate-100">
-          <h2 class="text-sm font-semibold text-slate-700">Upload ICCID CSV</h2>
+          <h2 class="text-sm font-semibold text-slate-700">Upload ICCID TXT</h2>
           <p class="text-xs text-slate-400 mt-0.5">File must have an <code class="bg-slate-100 px-1 py-0.5 rounded font-mono">ICCID</code> column — one ICCID per row.</p>
         </div>
         <div class="p-6">
@@ -119,10 +119,10 @@
                ondragleave="this.classList.remove('border-brand-400','bg-brand-50')"
                ondrop="handleDrop(event)">
             <div class="text-4xl mb-3">&#x1F4C2;</div>
-            <p class="text-sm font-medium text-slate-700" id="drop-label">Click or drag &amp; drop a CSV file here</p>
-            <p class="text-xs text-slate-400 mt-1" id="drop-sub">Accepts .csv and .CSV</p>
+            <p class="text-sm font-medium text-slate-700" id="drop-label">Click or drag &amp; drop a TXT file here</p>
+            <p class="text-xs text-slate-400 mt-1" id="drop-sub">Accepts .txt — one ICCID per line</p>
           </div>
-          <input type="file" id="csv-file-input" accept=".csv,.CSV" class="hidden" onchange="onFileSelect(event)">
+          <input type="file" id="csv-file-input" accept=".txt,.TXT" class="hidden" onchange="onFileSelect(event)">
           <div class="mt-5 flex items-center justify-between">
             <div id="file-info" class="text-xs text-slate-400 hidden">
               <span id="file-name-display" class="font-medium text-slate-600"></span>
